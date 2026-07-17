@@ -1,0 +1,8 @@
+# Mayhem target: naga ir fuzz harness (libFuzzer, ASan). Built by mayhem/build.sh
+# from naga's own fuzz/ crate; the binary lands at /mayhem/ir.
+project: savantenvs/naga
+target: ir
+
+cmds:
+  - cmd: /mayhem/ir
+    libfuzzer: true

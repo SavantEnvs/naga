@@ -1,0 +1,8 @@
+# Mayhem target: naga spv_parser fuzz harness (libFuzzer, ASan). Built by mayhem/build.sh
+# from naga's own fuzz/ crate; the binary lands at /mayhem/spv_parser.
+project: savantenvs/naga
+target: spv_parser
+
+cmds:
+  - cmd: /mayhem/spv_parser
+    libfuzzer: true

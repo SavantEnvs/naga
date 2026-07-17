@@ -1,0 +1,8 @@
+# Mayhem target: naga wgsl_parser fuzz harness (libFuzzer, ASan). Built by mayhem/build.sh
+# from naga's own fuzz/ crate; the binary lands at /mayhem/wgsl_parser.
+project: savantenvs/naga
+target: wgsl_parser
+
+cmds:
+  - cmd: /mayhem/wgsl_parser
+    libfuzzer: true

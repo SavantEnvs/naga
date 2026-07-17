@@ -1,0 +1,61 @@
+# Mayhem-layer functional oracle for naga (NOT part of upstream naga): every check mayhem/test.sh runs,
+# in one libFuzzer binary, `naga_oracle` (src/main.rs).
+#
+# It is a cargo-fuzz crate so that mayhem/build.sh builds it with `cargo fuzz build`, i.e. with the very
+# invocation that builds the graded fuzz targets (cargo-fuzz's RUSTFLAGS incl. --cfg fuzzing, ASan and
+# sancov, its ASAN_OPTIONS, release+debuginfo, --target), from a copy of fuzz/Cargo.lock. Twice:
+#   - GRADED: `default` features (= the fuzz crate's naga features), in the fuzz crate's own target dir,
+#     after the fuzz targets. build.sh asserts cargo REUSED the fuzz targets' naga ("Fresh"), so the
+#     checks run the very naga rlib the graded binaries contain.
+#   - REFERENCE: + `span` + `wgsl-out` (source spans for rendered diagnostics; the WGSL writer), in its
+#     own target dir. `span` cannot go into the graded build: it adds a field to naga's
+#     Arbitrary-derived Arena, i.e. it would change how every `ir` input decodes.
+# mayhem/test.sh counts a check as passed only if it passes in every build that runs it.
+#
+# Why a separate crate: upstream's root Cargo.toml pins `[workspace] members = [".", "cli"]` and the fork
+# may not edit it (nor fuzz/Cargo.toml), so this crate declares its OWN (empty) workspace below and
+# depends on naga by path. Its own checks use naga's PUBLIC API only (front::glsl, valid, back::wgsl),
+# so they never couple to crate-internal items an agent's patch might legitimately rename; suite
+# wgsl-errors is upstream's tests/wgsl-errors.rs (see build.rs). Suite ir-decode (src/ir_decode.rs, graded
+# build only) pins how the `ir` target decodes its input (naga's Arbitrary impls, through libfuzzer-sys's
+# re-exported `arbitrary`) against ir-decode/expected.txt, generated from the unpatched tree.
+[package]
+name = "naga-mayhem-oracle"
+version = "0.0.0"
+edition = "2021"
+publish = false
+build = "build.rs"
+
+[package.metadata]
+cargo-fuzz = true
+
+# Feature names mirror naga's so `#[cfg(feature = "...")]` inside upstream's test file resolves as it
+# does in naga's own workspace. `default` is EXACTLY the naga feature set of the graded fuzz crate
+# (fuzz/Cargo.toml [dependencies.naga]); `span` and `wgsl-out` are the two extra naga features of the
+# reference build (never enabled for the fuzz targets); the checks adapt to their absence (golden.rs;
+# test.sh skips the 17 wgsl-errors checks whose rendered snapshots need spans in the graded build).
+[features]
+default = ["arbitrary", "spv-in", "wgsl-in", "glsl-in", "validate"]
+arbitrary = ["naga/arbitrary"]
+spv-in = ["naga/spv-in"]
+wgsl-in = ["naga/wgsl-in"]
+glsl-in = ["naga/glsl-in"]
+validate = ["naga/validate"]
+span = ["naga/span"]
+wgsl-out = ["naga/wgsl-out"]
+
+[dependencies]
+# as in fuzz/Cargo.toml (same lock): the libFuzzer runtime + `fuzz_target!`
+libfuzzer-sys = "0.4"
+naga = { path = "../.." }
+# upstream tests/wgsl-errors.rs prints a line diff on a snapshot mismatch (as in naga's dev-dependencies)
+diff = "0.1"
+
+[[bin]]
+name = "naga_oracle"
+path = "src/main.rs"
+test = false
+doc = false
+
+# Own workspace root: keeps this crate out of naga's root workspace.
+[workspace]
